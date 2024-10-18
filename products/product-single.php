@@ -3,19 +3,56 @@
 <?php 
 
 
-	if(isset($_GET['id'])){
-		$id = $_GET['id'];
+	if (isset($_GET['id'])) {
+    $id = $_GET['id'];
 
-		$product = $conn->query("SELECT * FROM products WHERE id='$id'");
-		$product->execute();
+    // Data for single product
+    $product = $conn->prepare("SELECT * FROM products WHERE id=:id");
+    $product->execute([':id' => $id]);
+    $singleProduct = $product->fetch(PDO::FETCH_OBJ);
 
-		$singleProduct =$product->fetch(PDO::FETCH_OBJ);
+    // Data for related products
+    $relatedProducts = $conn->prepare("SELECT * FROM products WHERE type=:type AND id != :id");
+    $relatedProducts->execute([
+        ':type' => $singleProduct->type,
+        ':id' => $singleProduct->id
+    ]);
+    $allRelatedProducts = $relatedProducts->fetchAll(PDO::FETCH_OBJ);
 
-		$relatedProducts = $conn->query("SELECT * FROM products WHERE type='$singleProduct->type'
-		AND id !='$singleProduct->id'");
+    // Add to cart
+    if (isset($_POST['submit'])) {
+        $name = $_POST['name'];
+        $image = $_POST['image'];
+        $price = $_POST['price'];
+        $pro_id = $_POST['pro_id'];
+        $description = $_POST['description'];
+        $quantity = $_POST['quantity'];
+        $user_id = $_SESSION['user_id'];
 
-		$relatedProducts->execute();
-		$allRelatedProducts = $relatedProducts->fetchall(PDO::FETCH_OBJ);
+        // Insert into cart using a prepared statement
+        $insert_cart = $conn->prepare("INSERT INTO cart (name, image, price, pro_id, description, 
+        quantity, user_id) VALUES (:name, :image, :price, :pro_id, :description, :quantity, :user_id)");
+
+        $insert_cart->execute([
+            ":name" => $name,
+            ":image" => $image,
+            ":price" => $price,
+            ":pro_id" => $pro_id,
+            ":description" => $description,
+            ":quantity" => $quantity,
+            ":user_id" => $user_id
+        ]);
+    }
+	//Validation for cart
+	if(isset($_SESSION['user_id'])) {
+		$validateCart = $conn->query("SELECT * FROM cart WHERE pro_id='$id' AND 
+		user_id='$_SESSION[user_id]'");
+		$validateCart->execute();
+
+		$rowCount = $validateCart->rowCount();
+	}
+	
+
 }
 
 ?>
@@ -47,19 +84,20 @@
     				<p class="price"><span>$<?php echo $singleProduct->price; ?></span></p>
     				<p><?php echo $singleProduct->description; ?></p>
 
+					<form method="POST" action="product-single.php?id=<?php echo $id; ?>">
 						<div class="row mt-4">
 							<div class="col-md-6">
-								<div class="form-group d-flex">
-								<div class="select-wrap">
-								<div class="icon"><span class="ion-ios-arrow-down"></span></div>
-								<select name="" id="" class="form-control">
-									<option value="">Small</option>
-									<option value="">Medium</option>
-									<option value="">Large</option>
-									<option value="">Extra Large</option>
-								</select>
-								</div>
-		            </div>
+								<!-- <div class="form-group d-flex">
+									<div class="select-wrap">
+										<div class="icon"><span class="ion-ios-arrow-down"></span></div>
+											<select name="" id="" class="form-control">
+												<option value=b"">Small</option>
+												<option value="">Medium</option>
+												<option value="">Large</option>
+												<option value="">Extra Large</option>
+											</select>
+									</div>
+		           				</div> -->
 							</div>
 							<div class="w-100"></div>
 							<div class="input-group col-md-6 d-flex mb-3">
@@ -68,15 +106,26 @@
 	                   <i class="icon-minus"></i>
 	                	</button>
 	            		</span>
-	             	<input type="text" id="quantity" name="quantity" class="form-control input-number" value="1" min="1" max="100">
-	             	<span class="input-group-btn ml-2">
-	                	<button type="button" class="quantity-right-plus btn" data-type="plus" data-field="">
-	                     <i class="icon-plus"></i>
-	                 </button>
-	             	</span>
-	          	</div>
-          	</div>
-          	<p><a href="cart.html" class="btn btn-primary py-3 px-5">Add to Cart</a></p>
+				
+						<input type="text" id="quantity" name="quantity" class="form-control input-number" value="1" min="1" max="100">
+						<span class="input-group-btn ml-2">
+							<button type="button" class="quantity-right-plus btn" data-type="plus" data-field="">
+							<i class="icon-plus"></i>
+						</button>
+						</span>
+					</div>
+				</div>
+				<input name="name" value="<?php echo $singleProduct->name; ?>" type="hidden">
+				<input name="image" value="<?php echo $singleProduct->image; ?>" type="hidden">
+				<input name="price" value="<?php echo $singleProduct->price; ?>" type="hidden">
+				<input name="pro_id" value="<?php echo $singleProduct->id; ?>" type="hidden">
+				<input name="description" value="<?php echo $singleProduct->description; ?>" type="hidden">
+				<?php if($rowCount > 0) : ?>
+					<button name="submit" type="submit"  class="btn btn-primary py-3 px-5" disabled >Added to Cart</button>
+				<?php else : ?>
+          		<button name="submit" type="submit"  class="btn btn-primary py-3 px-5">Add to Cart</button>
+				<?php endif; ?>
+			</form>
     			</div>
     		</div>
     	</div>
@@ -102,7 +151,7 @@
 							<?php echo $allRelatedProduct->description; ?>
 							</p>
     						<p class="price"><span>$<?php echo $allRelatedProduct->price; ?></span></p>
-    						<p><a href="#" class="btn btn-primary btn-outline-primary">Add to Cart</a></p>
+    						<p><a href="<?php echo APPURL; ?>/products/product-single.php?id=<?php echo $allRelatedProduct->id; ?>" class="btn btn-primary btn-outline-primary">Show</a></p>
     					</div>
     				</div>
         	</div>
