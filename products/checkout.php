@@ -1,7 +1,6 @@
 <?php require "../includes/header.php"; ?>
 <?php
 require "../config/config.php";
-session_start();
 
 if (!isset($_SESSION['user_id'])) {
 	header('location: http://localhost/coffee-blend');
